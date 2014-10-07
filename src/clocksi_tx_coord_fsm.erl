@@ -309,6 +309,7 @@ reply_to_client(timeout, SD=#state{from=From,
     TxId = Transaction#transaction.txn_id,
     _ = case TxState of
         committed ->
+            lager:info("Sending commited tx result ~p, ~p and ~p; to ~p",[TxId, ReadSet, CommitTime, From]),
             From ! {ok, {TxId, ReadSet, CommitTime}};
         aborted ->
             From ! {abort, TxId};
