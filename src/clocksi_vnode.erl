@@ -326,17 +326,15 @@ now_milisec({MegaSecs, Secs, MicroSecs}) ->
 %%      to the prepared state.
 certification_check(_, [], _, _) ->
     true;
-certification_check(TxId, [_H|_T], CommittedTx, _ActiveTxPerKey) ->
-    check_keylog(TxId, [], CommittedTx),
-    true.
-    %%{_, {Key, _Type, _}} = H,
-    %%TxsPerKey = ets:lookup(ActiveTxPerKey, Key),
-    %%case check_keylog(TxId, TxsPerKey, CommittedTx) of
-    %%    true ->
-    %%        false;
-    %%    false ->
-    %%        certification_check(TxId, T, CommittedTx, ActiveTxPerKey)
-    %%end.
+certification_check(TxId, [H|T], CommittedTx, ActiveTxPerKey) ->
+    {_, {Key, _Type, _}} = H,
+    TxsPerKey = ets:lookup(ActiveTxPerKey, Key),
+    case check_keylog(TxId, TxsPerKey, CommittedTx) of
+        true ->
+            false;
+        false ->
+            certification_check(TxId, T, CommittedTx, ActiveTxPerKey)
+    end.
 
 check_keylog(_, [], _) ->
     false;
