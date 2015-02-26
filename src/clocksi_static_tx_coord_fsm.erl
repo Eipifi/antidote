@@ -58,6 +58,7 @@
 %%%===================================================================
 
 start_link(From, ClientClock, Operations) ->
+    lager:info("ClientClock ~w",[ClientClock]),
     gen_fsm:start_link(?MODULE, [From, ClientClock, Operations], []).
 
 start_link(From, Operations) ->

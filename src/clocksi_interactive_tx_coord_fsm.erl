@@ -87,6 +87,7 @@ init([From, ClientClock]) ->
         _ ->
             get_snapshot_time(ClientClock)
     end,
+    lager:info("ClientClient is ~w",[ClientClock]),
     DcId = dc_utilities:get_my_dc_id(),
     {ok, LocalClock} = vectorclock:get_clock_of_dc(DcId, SnapshotTime),
     TransactionId = #tx_id{snapshot_time=LocalClock, server_pid=self()},
@@ -283,11 +284,14 @@ terminate(_Reason, _SN, _SD) ->
 -spec get_snapshot_time(ClientClock :: vectorclock:vectorclock())
                        -> {ok, vectorclock:vectorclock()} | {error,term()}.
 get_snapshot_time(ClientClock) ->
+    lager:info("Get snapshot time, going to wait..~w", [ClientClock]),
     wait_for_clock(ClientClock).
 
 -spec get_snapshot_time() -> {ok, vectorclock:vectorclock()} | {error, term()}.
 get_snapshot_time() ->
+    lager:info("Get empty snapshot time~w"),
     Now = clocksi_vnode:now_milisec(erlang:now()),
+    lager:info("Now it's : ~w",[Now]),
     case vectorclock:get_stable_snapshot() of
         {ok, VecSnapshotTime} ->
             DcId = dc_utilities:get_my_dc_id(),
