@@ -114,6 +114,7 @@ execute_op({Op_type, Args}, Sender,
             {Key, Type}=Args,
             Preflist = log_utilities:get_preflist_from_key(Key),
             IndexNode = hd(Preflist),
+	    lager:info("In interactive node: pref ~w node ~w, key ~w", [Preflist, IndexNode, Key]),
             case clocksi_vnode:read_data_item(IndexNode, Transaction,
                                               Key, Type) of
                 {error, Reason} ->
