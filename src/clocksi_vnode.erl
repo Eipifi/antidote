@@ -75,6 +75,7 @@ start_vnode(I) ->
 
 %% @doc Sends a read request to the Node that is responsible for the Key
 read_data_item(Node, TxId, Key, Type) ->
+    lager:info("Before sending request: node ~w Txid ~w key ~w type ~w", [Node, TxId, Key, Type]),
     try
         riak_core_vnode_master:sync_command(Node,
                                             {read_data_item, TxId, Key, Type},
@@ -144,10 +145,13 @@ init([Partition]) ->
 %% @doc starts a read_fsm to handle a read operation.
 handle_command({read_data_item, Txn, Key, Type}, Sender,
                #state{write_set=WriteSet, partition=Partition}=State) ->
+    lager:info("Get request for item Key ~w from ~w", [Key, Sender]),
     Vnode = {Partition, node()},
     Updates = ets:lookup(WriteSet, Txn#transaction.txn_id),
+    lager:info("Got updates for item Key ~w", [Key]),
     {ok, _Pid} = clocksi_readitem_fsm:start_link(Vnode, Sender, Txn,
                                                  Key, Type, Updates),
+    lager:info("Started read item fsm"),
     {noreply, State};
 
 %% @doc handles an update operation at a Leader's partition
