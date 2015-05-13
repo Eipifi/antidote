@@ -69,6 +69,7 @@ start_link(From, Operations) ->
 
 %% @doc Initialize the state.
 init([From, ClientClock, Operations]) ->
+    lager:info("Init fsm Time ~w, Module ~w", [erlang:now(), ?MODULE]),
     _ = random:seed(erlang:now()),
     {ok, _Pid} = case ClientClock of
                      ignore ->
@@ -78,6 +79,7 @@ init([From, ClientClock, Operations]) ->
                  end,
     receive
         {ok, TxId} ->
+            lager:info("Finish starting interactive fsm Time ~w, Module ~w", [erlang:now(), ?MODULE]),
             {_, _, TxCoordPid} = TxId,
             {ok, execute_batch_ops, #state{tx_id=TxId, tx_coord_pid = TxCoordPid,
                                            from = From, operations = Operations}, 0}
@@ -95,6 +97,7 @@ execute_batch_ops(timeout, SD=#state{from = From,
                                      tx_id = TxId,
                                      tx_coord_pid = TxCoordPid,
                                      operations = Operations}) ->
+    lager:info("Before execute Time ~w, Module ~w", [erlang:now(), ?MODULE]),
     ExecuteOp = fun (Operation, Acc) ->
             case Acc of
                 {error, Reason} ->
@@ -118,6 +121,7 @@ execute_batch_ops(timeout, SD=#state{from = From,
                     end
             end
     end,
+    lager:info("Finish update ops Time ~w, Module ~w", [erlang:now(), ?MODULE]),
     ReadSet = lists:foldl(ExecuteOp, [], Operations),
     case ReadSet of
         {error, Reason} ->

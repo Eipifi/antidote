@@ -43,9 +43,11 @@
 %%      object stored at some key.
 -spec append(Key::key(), Type::type(), {term(),term()}) -> {ok, term()} | {error, reason()}.
 append(Key, Type, {OpParam, Actor}) ->
+    lager:info("Time ~w, Module ~w", [erlang:now(), ?MODULE]),
     Operations = [{update, Key, Type, {OpParam, Actor}}],
     case clocksi_execute_tx(Operations) of
         {ok, Result} ->
+            lager:info("Time ~w, Module ~w", [erlang:now(), ?MODULE]),
             {ok, Result};
         {error, Reason} ->
             {error, Reason}
@@ -76,7 +78,9 @@ read(Key, Type) ->
 -spec clocksi_execute_tx(Clock :: vectorclock:vectorclock(),
                          Operations::[any()]) -> term().
 clocksi_execute_tx(Clock, Operations) ->
+    lager:info("Start fsm Time ~w, Module ~w", [erlang:now(), ?MODULE]),
     {ok, _} = clocksi_static_tx_coord_sup:start_fsm([self(), Clock, Operations]),
+    lager:info("Finish start fsm Time ~w, Module ~w", [erlang:now(), ?MODULE]),
     receive
         EndOfTx ->
             EndOfTx

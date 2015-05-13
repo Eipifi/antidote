@@ -82,6 +82,7 @@ finish_op(From, Key,Result) ->
 
 %% @doc Initialize the state.
 init([From, ClientClock]) ->
+    lager:info("Init Time ~w, Module ~w", [erlang:now(), ?MODULE]),
     {ok, SnapshotTime} = case ClientClock of
         ignore ->
             get_snapshot_time();
@@ -108,6 +109,7 @@ init([From, ClientClock]) ->
 execute_op({Op_type, Args}, Sender,
            SD0=#state{transaction=Transaction, from=_From,
                       updated_partitions=Updated_partitions}) ->
+    lager:info("Execute op Time ~w, Module ~w", [erlang:now(), ?MODULE]),
     case Op_type of
         prepare ->
             case Args of

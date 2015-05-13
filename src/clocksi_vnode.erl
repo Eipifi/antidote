@@ -163,12 +163,15 @@ handle_command({update_data_item, Txn, Key, Type, Op}, Sender,
                #state{partition=Partition,
                       write_set=WriteSet,
                       active_txs_per_key=_ActiveTxsPerKey}=State) ->
+    lager:info("Update data item Time ~w, Module ~w", [erlang:now(), ?MODULE]),
     TxId = Txn#transaction.txn_id,
     LogRecord = #log_record{tx_id=TxId, op_type=update,
                             op_payload={Key, Type, Op}},
+    lager:info("Before logging Time ~w, Module ~w", [erlang:now(), ?MODULE]),
     LogId = log_utilities:get_logid_from_key(Key),
     [Node] = log_utilities:get_preflist_from_key(Key),
     Result = logging_vnode:append(Node,LogId,LogRecord),
+    lager:info("After logging Time ~w, Module ~w", [erlang:now(), ?MODULE]),
     case Result of
         {ok, _} ->
             %%true = ets:insert(ActiveTxsPerKey, {Key, Type, TxId}),
