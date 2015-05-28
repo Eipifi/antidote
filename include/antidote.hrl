@@ -70,6 +70,7 @@
 -type snapshot_time() ::  vectorclock:vectorclock().
 -type commit_time() ::  {dcid(), non_neg_integer()}.
 -type txid() :: #tx_id{}.
+-type otid() :: {term(), non_neg_integer()}. %% Origin Transaction Identifier (SwiftCloud)
 -type clocksi_payload() :: #clocksi_payload{}.
 -type dcid() :: term().
 -type tx() :: #transaction{}.

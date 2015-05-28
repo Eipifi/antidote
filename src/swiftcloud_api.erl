@@ -26,6 +26,7 @@
   execute_transaction/2]).
 
 %% Returns the K-durable clock as perceived by this DC
+-spec get_clock() -> {ok, snapshot_time()} | {error, reason()}.
 get_clock() ->
   %% TODO: implement actual k-durability
   case clocksi_interactive_tx_coord_fsm:get_snapshot_time() of
@@ -34,6 +35,7 @@ get_clock() ->
   end.
 
 %% Reads the object with the specified key and dependencies
+-spec read_object(Clock::snapshot_time(), Key::key(), Type::type()) -> {ok, {term(), snapshot_time()}} | {error, reason()}.
 read_object(Clock, Key, Type) ->
   case antidote:clocksi_read(dict:from_list(Clock), Key, Type) of
     {ok,{_, [Val], ActualClock}} ->
@@ -43,6 +45,7 @@ read_object(Clock, Key, Type) ->
     end.
 
 %% Executes the given transaction
+-spec execute_transaction(OTID::otid(), {Clock::snapshot_time(), Operations::list()}) -> {ok, commit_time()} | {error, reason()}.
 execute_transaction(OTID, {Clock, Operations}) ->
   {ClientID, _} = OTID,
   Fun = fun(OP) -> format_operation(OP, ClientID) end,
