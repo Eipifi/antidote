@@ -50,6 +50,9 @@
          abort/2,
          reply_to_client/2]).
 
+%% Others
+-export([get_snapshot_time/0]).
+
 %%---------------------------------------------------------------------
 %% @doc Data Type: state
 %% where:
