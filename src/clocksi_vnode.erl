@@ -28,7 +28,7 @@
          read_data_item/4,
          update_data_item/5,
          prepare/2,
-         commit/3,
+         commit/4,
          abort/2,
          now_microsec/1,
          init/1,
@@ -107,9 +107,9 @@ prepare(ListofNodes, TxId) ->
                                    ?CLOCKSI_MASTER).
 
 %% @doc Sends a commit request to a Node involved in a tx identified by TxId
-commit(ListofNodes, TxId, CommitTime) ->
+commit(ListofNodes, TxId, CommitTime, OTID) ->
     riak_core_vnode_master:command(ListofNodes,
-                                   {commit, TxId, CommitTime},
+                                   {commit, TxId, CommitTime, OTID},
                                    {fsm, undefined, self()},
                                    ?CLOCKSI_MASTER).
 
@@ -211,17 +211,19 @@ handle_command({prepare, Transaction}, _Sender,
 %% TODO: sending empty writeset to clocksi_downstream_generatro
 %% Just a workaround, need to delete downstream_generator_vnode
 %% eventually.
-handle_command({commit, Transaction, TxCommitTime}, _Sender,
+handle_command({commit, Transaction, TxCommitTime, OTID}, _Sender,
                #state{partition=_Partition,
                       committed_tx=CommittedTx,
                       write_set=WriteSet} = State) ->
     TxId = Transaction#transaction.txn_id,
     DcId = dc_utilities:get_my_dc_id(),
-    LogRecord=#log_record{tx_id=TxId,
-                          op_type=commit,
-                          op_payload={{DcId, TxCommitTime},
-                                      Transaction#transaction.vec_snapshot_time}},
+    LogRecord=#log_record{
+      tx_id=TxId,
+      op_type=commit,
+      op_payload={{DcId, TxCommitTime}, Transaction#transaction.vec_snapshot_time, OTID}
+    },
     Updates = ets:lookup(WriteSet, TxId),
+    lager:info("LOCAL Received transaction ~p with OTID ~p", [TxId, OTID]), %% HERE
     case Updates of
         [{_, {Key, _Type, {_Op, _Param}}} | _Rest] -> 
             LogId = log_utilities:get_logid_from_key(Key),

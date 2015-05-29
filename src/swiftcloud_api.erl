@@ -45,11 +45,11 @@ read_object(Clock, Key, Type) ->
     end.
 
 %% Executes the given transaction
--spec execute_transaction(OTID::otid(), {Clock::snapshot_time(), Operations::list()}) -> {ok, commit_time()} | {error, reason()}.
+-spec execute_transaction(OTID::otid(), {Clock::snapshot_time(), Operations::[any()]}) -> {ok, commit_time()} | {error, reason()}.
 execute_transaction(OTID, {Clock, Operations}) ->
   {ClientID, _} = OTID,
   Fun = fun(OP) -> format_operation(OP, ClientID) end,
-  case antidote:clocksi_execute_tx(dict:from_list(Clock), lists:map(Fun, Operations)) of
+  case execute_tx_with_otid(dict:from_list(Clock), lists:map(Fun, Operations), OTID) of
     {ok, {_, _, CommitTime}} ->
       DcId = dc_utilities:get_my_dc_id(),
       {ok, ClockSiValue} = vectorclock:get_clock_of_dc(DcId, CommitTime),
@@ -63,3 +63,10 @@ format_operation({Key, Type, Method, Args}, Actor) ->
     _ -> list_to_tuple([ Method | Args])
   end,
   {update, Key, Type, {OpParam, Actor}}.
+
+execute_tx_with_otid(Clock, Operations, OTID) ->
+  {ok, _} = clocksi_static_tx_coord_sup:start_fsm([self(), Clock, Operations, OTID]),
+  receive
+    EndOfTx ->
+      EndOfTx
+  end.

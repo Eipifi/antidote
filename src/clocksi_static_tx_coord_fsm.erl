@@ -30,7 +30,8 @@
 -include("antidote.hrl").
 
 %% API
--export([start_link/3,
+-export([start_link/4,
+				 start_link/3,
          start_link/2]).
 
 %% Callbacks
@@ -57,11 +58,14 @@
 %%% API
 %%%===================================================================
 
+start_link(From, ClientClock, Operations, OTID) ->
+	gen_fsm:start_link(?MODULE, [From, ClientClock, Operations, OTID], []).
+
 start_link(From, ClientClock, Operations) ->
-    gen_fsm:start_link(?MODULE, [From, ClientClock, Operations], []).
+    gen_fsm:start_link(?MODULE, [From, ClientClock, Operations, none], []).
 
 start_link(From, Operations) ->
-    gen_fsm:start_link(?MODULE, [From, ignore, Operations], []).
+    gen_fsm:start_link(?MODULE, [From, ignore, Operations, none], []).
 
 
 %%%===================================================================
@@ -69,17 +73,16 @@ start_link(From, Operations) ->
 %%%===================================================================
 
 %% @doc Initialize the state.
-init([From, ClientClock, Operations]) ->
+init([From, ClientClock, Operations, OTID]) ->
     {ok, _Pid} = case ClientClock of
                      ignore ->
                          clocksi_interactive_tx_coord_sup:start_fsm([self()]);
                      _ ->
-                         clocksi_interactive_tx_coord_sup:start_fsm([self(), ClientClock])
+                         clocksi_interactive_tx_coord_sup:start_fsm([self(), ClientClock, OTID])
                  end,
     receive
         {ok, TxId} ->
-            {_, _, TxCoordPid} = TxId,
-            {ok, execute_batch_ops, #state{tx_id=TxId, tx_coord_pid = TxCoordPid,
+            {ok, execute_batch_ops, #state{tx_id=TxId, tx_coord_pid = TxId#tx_id.server_pid,
                                            from = From, operations = Operations}, 0}
     after
         10000 ->

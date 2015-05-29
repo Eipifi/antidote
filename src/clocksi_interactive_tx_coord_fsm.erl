@@ -30,7 +30,7 @@
 -include("antidote.hrl").
 
 %% API
--export([start_link/2, start_link/1]).
+-export([start_link/3, start_link/2, start_link/1]).
 
 %% Callbacks
 -export([init/1,
@@ -72,17 +72,22 @@
         num_to_ack :: non_neg_integer(),
         prepare_time :: non_neg_integer(),
         commit_time :: non_neg_integer(),
-        state :: active | prepared | committing | committed | undefined | aborted}).
+        state :: active | prepared | committing | committed | undefined | aborted,
+        otid = none :: otid() | none
+}).
 
 %%%===================================================================
 %%% API
 %%%===================================================================
 
+start_link(From, Clientclock, OTID) ->
+    gen_fsm:start_link(?MODULE, [From, Clientclock, OTID], []).
+
 start_link(From, Clientclock) ->
-    gen_fsm:start_link(?MODULE, [From, Clientclock], []).
+    gen_fsm:start_link(?MODULE, [From, Clientclock, none], []).
 
 start_link(From) ->
-    gen_fsm:start_link(?MODULE, [From, ignore], []).
+    gen_fsm:start_link(?MODULE, [From, ignore, none], []).
 
 finish_op(From, Key,Result) ->
     gen_fsm:send_event(From, {Key, Result}).
@@ -92,7 +97,7 @@ finish_op(From, Key,Result) ->
 %%%===================================================================
 
 %% @doc Initialize the state.
-init([From, ClientClock]) ->
+init([From, ClientClock, OTID]) ->
     {ok, SnapshotTime} = case ClientClock of
         ignore ->
             get_snapshot_time();
@@ -105,7 +110,7 @@ init([From, ClientClock]) ->
     Transaction = #transaction{snapshot_time=LocalClock,
                                vec_snapshot_time=SnapshotTime,
                                txn_id=TransactionId},
-    SD = #state{transaction=Transaction, updated_partitions=[], prepare_time=0},
+    SD = #state{transaction=Transaction, updated_partitions=[], prepare_time=0, otid=OTID},
     From ! {ok, TransactionId},
     {ok, execute_op, SD}.
 
@@ -197,7 +202,7 @@ committing(commit, Sender, SD0=#state{transaction=Transaction,
         0 ->
             {next_state, reply_to_client, SD0#state{state=committed, from=Sender}, 0};
         _ ->
-            clocksi_vnode:commit(UpdatedPartitions, Transaction, CommitTime),
+            clocksi_vnode:commit(UpdatedPartitions, Transaction, CommitTime, SD0#state.otid),
             {next_state, receive_committed, SD0#state{num_to_ack=NumToAck, from=Sender, state=committing}}
     end.
 

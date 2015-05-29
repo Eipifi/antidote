@@ -94,7 +94,7 @@ get_next_transactions(State=#state{partition = Partition,
     %% "Before" contains all transactions committed before stable_time
     {Before, After} = lists:splitwith(
                         fun(Logrecord) ->
-                                {{_Dcid, CommitTime}, _} = Logrecord#log_record.op_payload,
+                                {{_Dcid, CommitTime}, _, _OTID} = Logrecord#log_record.op_payload,
                                 CommitTime < Stable_time
                         end,
                         Txns),
@@ -160,7 +160,7 @@ get_prev_stable_time(Reader) ->
 construct_transaction(Ops) ->
     Commitoperation = lists:last(Ops),
     Commitrecord = Commitoperation#operation.payload,
-    {CommitTime, VecSnapshotTime} = Commitrecord#log_record.op_payload,
+    {CommitTime, VecSnapshotTime, _OTID} = Commitrecord#log_record.op_payload,
     TxId = Commitrecord#log_record.tx_id,
     {TxId, CommitTime, VecSnapshotTime, Ops}.
 
@@ -187,8 +187,8 @@ get_last_opid(Ops) ->
 get_sorted_commit_records(Commitrecords) ->
     %%sort txns
     CompareFun = fun(Commitrecord1, Commitrecord2) ->
-                         {{_DcId, CommitTime1},_} = Commitrecord1#log_record.op_payload,
-                         {{_DcId, CommitTime2},_} = Commitrecord2#log_record.op_payload,
+                         {{_DcId, CommitTime1},_,_} = Commitrecord1#log_record.op_payload,
+                         {{_DcId, CommitTime2},_,_} = Commitrecord2#log_record.op_payload,
                          CommitTime1 =< CommitTime2
                  end,
     lists:sort(CompareFun, Commitrecords).
@@ -226,7 +226,7 @@ add_to_pending_operations(Pending, Commitrecords, Ops, DcId) ->
                       TxId = Logrecord#log_record.tx_id,
                       case Logrecord#log_record.op_type of
                           commit ->
-                              {{Dc,_CT},_ST} = Logrecord#log_record.op_payload,
+                              {{Dc,_CT},_ST,_OTID} = Logrecord#log_record.op_payload,
                               case Dc of
                                   DcId ->
                                       NewCommit = ListCommits ++ [Logrecord],
