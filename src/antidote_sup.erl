@@ -91,6 +91,10 @@ init(_Args) ->
       {swiftcloud_otid_sup, start_link, []},
       permanent, 5000, supervisor, [swiftcloud_otid_sup]},
 
+    SwiftCloudKdurWorker = {swiftcloud_kdur_worker,
+      {swiftcloud_kdur_worker, start_link, []},
+      permanent, 5000, worker, [swiftcloud_kdur_worker]},
+
     {ok,
      {{one_for_one, 5, 10},
       [LoggingMaster,
@@ -102,4 +106,5 @@ init(_Args) ->
        InterDcManager,
        VectorClockMaster,
        MaterializerMaster,
-       SwiftCloudOtidManager]}}.
+       SwiftCloudOtidManager,
+       SwiftCloudKdurWorker]}}.
