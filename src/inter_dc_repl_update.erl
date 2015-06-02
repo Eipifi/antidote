@@ -118,44 +118,61 @@ check_and_update(SnapshotTime, Localclock, Transaction,
                     lager:error("Wrong transaction record format"),
                     erlang:error(bad_transaction_record)
             end,
-    case check_dep(SnapshotTime, Localclock) of
+    case swiftcloud_otid_fsm:was_otid_observed(get_transaction_otid(Transaction)) of
         true ->
-            lists:foreach(
-              fun(Op) ->
-                      Logrecord = Op#operation.payload,
-                      case Logrecord#log_record.op_type of
-                          noop ->
-                              lager:debug("Heartbeat Received");
-                          update ->
-                              logging_vnode:append(Node, LogId, Logrecord);
-                          _ -> %% prepare or commit
-                              logging_vnode:append(Node, LogId, Logrecord),
-                              lager:debug("Prepare/Commit record")
-                              %%TODO Write this to log
-                      end
-              end, Ops),
-            DownOps =
-                clocksi_transaction_reader:get_update_ops_from_transaction(
-                  Transaction),
-            lists:foreach( fun(DownOp) ->
-                                   Key = DownOp#clocksi_payload.key,
-                                   ok = materializer_vnode:update(Key, DownOp)
-                           end, DownOps),
-            lager:debug("Update from remote DC applied:",[payload]),
-            %%TODO add error handling if append failed
-            {ok, NewState} = finish_update_dc(
-                               Dc, DcQ, Ts, StateData),
-            ok = vectorclock:update_clock(Partition, Dc, Ts),
-            riak_core_vnode_master:command(
-              {Partition,node()}, calculate_stable_snapshot,
-              vectorclock_vnode_master),
-            riak_core_vnode_master:command({Partition, node()}, {process_queue},
-                                           inter_dc_recvr_vnode_master),
-            NewState;
+            %% the transaction OTID was already observed, we can safely skip it
+            lager:info("Duplicate transaction skipped"),
+            StateData;
         false ->
-            lager:debug("Dep not satisfied ~p", [Transaction]),
-            StateData
+            case check_dep(SnapshotTime, Localclock) of
+                true ->
+                    lists:foreach(
+                      fun(Op) ->
+                              Logrecord = Op#operation.payload,
+                              case Logrecord#log_record.op_type of
+                                  noop ->
+                                      lager:debug("Heartbeat Received");
+                                  update ->
+                                      logging_vnode:append(Node, LogId, Logrecord);
+                                  _ -> %% prepare or commit
+                                      logging_vnode:append(Node, LogId, Logrecord),
+                                      lager:debug("Prepare/Commit record")
+                                      %%TODO Write this to log
+                              end
+                      end, Ops),
+                    DownOps =
+                        clocksi_transaction_reader:get_update_ops_from_transaction(
+                          Transaction),
+                    lists:foreach( fun(DownOp) ->
+                                           Key = DownOp#clocksi_payload.key,
+                                           ok = materializer_vnode:update(Key, DownOp)
+                                   end, DownOps),
+                    lager:debug("Update from remote DC applied:",[payload]),
+                    %%TODO add error handling if append failed
+                    {ok, NewState} = finish_update_dc(
+                                       Dc, DcQ, Ts, StateData),
+                    ok = vectorclock:update_clock(Partition, Dc, Ts),
+                    riak_core_vnode_master:command(
+                      {Partition,node()}, calculate_stable_snapshot,
+                      vectorclock_vnode_master),
+                    riak_core_vnode_master:command({Partition, node()}, {process_queue},
+                                                   inter_dc_recvr_vnode_master),
+                    NewState;
+                false ->
+                    lager:debug("Dep not satisfied ~p", [Transaction]),
+                    StateData
+            end
     end.
+
+get_transaction_otid(Transaction) ->
+  {_, _, _, Ops} = Transaction,
+  LastOp = lists:last(Ops),
+  OpLog = LastOp#operation.payload,
+  case OpLog#log_record.op_type of
+    commit -> {_, _, OTID} = OpLog#log_record.op_payload,
+      OTID;
+    _ -> none
+  end.
 
 finish_update_dc(Dc, DcQ, Cts,
                  State=#recvr_state{lastCommitted = LastCTS, recQ = RecQ}) ->

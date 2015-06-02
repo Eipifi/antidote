@@ -20,19 +20,16 @@
 -module(swiftcloud_api).
 -include("antidote.hrl").
 
--export([
-  get_clock/0,
-  read_object/3,
-  execute_transaction/2]).
+-export([get_clock/1, read_object/3, execute_transaction/2]).
 
 %% Returns the K-durable clock as perceived by this DC
--spec get_clock() -> {ok, snapshot_time()} | {error, reason()}.
-get_clock() ->
-  %% TODO: implement actual k-durability
-  case clocksi_interactive_tx_coord_fsm:get_snapshot_time() of
-    {ok, VC} -> {ok, dict:to_list(VC)};
-    {error, Reason} -> {error, Reason}
-  end.
+-spec get_clock(K::integer()) -> {ok, snapshot_time()} | {error, reason()}.
+get_clock(K) ->
+  swiftcloud_kdur:get_kdur_snapshot(K).
+  %%case clocksi_interactive_tx_coord_fsm:get_snapshot_time() of
+  %%  {ok, VC} -> {ok, dict:to_list(VC)};
+  %%  {error, Reason} -> {error, Reason}
+  %%end.
 
 %% Reads the object with the specified key and dependencies
 -spec read_object(Clock::snapshot_time(), Key::key(), Type::type()) -> {ok, {term(), snapshot_time()}} | {error, reason()}.
@@ -46,7 +43,16 @@ read_object(Clock, Key, Type) ->
 
 %% Executes the given transaction
 -spec execute_transaction(OTID::otid(), {Clock::snapshot_time(), Operations::[any()]}) -> {ok, commit_time()} | {error, reason()}.
-execute_transaction(OTID, {Clock, Operations}) ->
+execute_transaction(OTID, Transaction) ->
+  case swiftcloud_otid_fsm:was_otid_observed(OTID) of
+    true ->
+      DcId = dc_utilities:get_my_dc_id(),
+      {ok, SnapshotTime} = clocksi_interactive_tx_coord_fsm:get_snapshot_time(),
+      {ok, {DcId, vectorclock:get_clock_of_dc(DcId, SnapshotTime)}};
+    false -> execute_after_otid_check(OTID, Transaction)
+  end.
+
+execute_after_otid_check(OTID, {Clock, Operations}) ->
   {ClientID, _} = OTID,
   Fun = fun(OP) -> format_operation(OP, ClientID) end,
   case execute_tx_with_otid(dict:from_list(Clock), lists:map(Fun, Operations), OTID) of
@@ -54,7 +60,9 @@ execute_transaction(OTID, {Clock, Operations}) ->
       DcId = dc_utilities:get_my_dc_id(),
       {ok, ClockSiValue} = vectorclock:get_clock_of_dc(DcId, CommitTime),
       {ok, {DcId, ClockSiValue}};
-    {error, Reason} -> {error, Reason}
+    {error, Reason} ->
+      %% we have a serious problem - the OTID was stored, but the transaction failed.
+      {error, Reason}
   end.
 
 format_operation({Key, Type, Method, Args}, Actor) ->

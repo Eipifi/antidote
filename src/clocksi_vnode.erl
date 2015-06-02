@@ -223,9 +223,8 @@ handle_command({commit, Transaction, TxCommitTime, OTID}, _Sender,
       op_payload={{DcId, TxCommitTime}, Transaction#transaction.vec_snapshot_time, OTID}
     },
     Updates = ets:lookup(WriteSet, TxId),
-    lager:info("LOCAL Received transaction ~p with OTID ~p", [TxId, OTID]), %% HERE
     case Updates of
-        [{_, {Key, _Type, {_Op, _Param}}} | _Rest] -> 
+        [{_, {Key, _Type, {_Op, _Param}}} | _Rest] ->
             LogId = log_utilities:get_logid_from_key(Key),
             [Node] = log_utilities:get_preflist_from_key(Key),
             case logging_vnode:append(Node,LogId,LogRecord) of
@@ -241,7 +240,7 @@ handle_command({commit, Transaction, TxCommitTime, OTID}, _Sender,
                 {error, timeout} ->
                     {reply, {error, timeout}, State}
             end;
-        _ -> 
+        _ ->
             {reply, {error, no_tx_record}, State}
     end;
 

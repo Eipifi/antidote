@@ -87,6 +87,10 @@ init(_Args) ->
                         {inter_dc_manager, start_link, []},
                         permanent, 5000, worker, [inter_dc_manager]},
 
+    SwiftCloudOtidManager = {swiftcloud_otid_sup,
+      {swiftcloud_otid_sup, start_link, []},
+      permanent, 5000, supervisor, [swiftcloud_otid_sup]},
+
     {ok,
      {{one_for_one, 5, 10},
       [LoggingMaster,
@@ -97,4 +101,5 @@ init(_Args) ->
        InterDcRecvrMaster,
        InterDcManager,
        VectorClockMaster,
-       MaterializerMaster]}}.
+       MaterializerMaster,
+       SwiftCloudOtidManager]}}.

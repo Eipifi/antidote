@@ -82,16 +82,6 @@ store_update(Node, Transaction) ->
                                         {store_update, Transaction},
                                         inter_dc_recvr_vnode_master).
 
-get_transaction_otid(Transaction) ->
-  {_, _, _, Ops} = Transaction,
-  LastOp = lists:last(Ops),
-  OpLog = LastOp#operation.payload,
-  case OpLog#log_record.op_type of
-    commit -> {_, _, OTID} = OpLog#log_record.op_payload,
-              OTID;
-    _ -> none
-  end.
-
 %% riak_core_vnode call backs
 init([Partition]) ->
     StateFile = string:concat(integer_to_list(Partition), "replstate"),
@@ -115,12 +105,6 @@ init([Partition]) ->
 %% process one replication request from other Dc. Update is put in a queue for each DC.
 %% Updates are expected to recieve in causal order.
 handle_command({store_update, Transaction}, _Sender, State) ->
-    OTID = get_transaction_otid(Transaction),
-    case OTID of
-      none -> noop;
-      _    -> {TxId, _, _, _} = Transaction,
-        lager:info("REMOTE Received transaction ~p with OTID ~p", [TxId, OTID]) %% HERE
-    end,
     {ok, NewState} = inter_dc_repl_update:enqueue_update(
                        Transaction, State),
     ok = dets:insert(State#recvr_state.statestore, {recvr_state, NewState}),
