@@ -17,10 +17,31 @@
 %% under the License.
 %%
 %% -------------------------------------------------------------------
-
 -module(swiftcloud_kdur).
+%% KDur worker periodically updates the clock map.
+-behaviour(gen_server).
 
--export([update_clock_map/0, get_kdur_snapshot/1]).
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3, start_link/0, get_kdur_snapshot/1]).
+
+start_link() -> gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+
+init(_)->
+  timer:send_interval(1000, interval),
+  {ok, []}.
+
+handle_info(interval, State)->
+  update_clock_map(),
+  {noreply, State}.
+
+handle_call(_Request, _From, ClockMap) -> {noreply, ClockMap}.
+
+handle_cast(_Request, ClockMap) -> {noreply, ClockMap}.
+
+terminate(_Reason, _State) -> ok.
+
+code_change(_OldVsn, ClockMap, _Extra) -> ClockMap.
+
+%%%%%%%%%%%%%%%%%%%%
 
 update_clock_map() ->
   DcId = dc_utilities:get_my_dc_id(),
@@ -28,7 +49,6 @@ update_clock_map() ->
     {ok, Snapshot} ->
       EntryUpdateOp = {update, {DcId, riak_dt_lwwreg}, {assign, Snapshot}},
       OpParam = {update, [EntryUpdateOp]},
-      lager:info("Updating ~p", [OpParam]),
       antidote:append(swiftcloud_clock_map, riak_dt_map, {OpParam, clock_map_update_actor});
     {error, Reason} -> {error, Reason}
   end.

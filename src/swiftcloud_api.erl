@@ -24,12 +24,7 @@
 
 %% Returns the K-durable clock as perceived by this DC
 -spec get_clock(K::integer()) -> {ok, snapshot_time()} | {error, reason()}.
-get_clock(K) ->
-  swiftcloud_kdur:get_kdur_snapshot(K).
-  %%case clocksi_interactive_tx_coord_fsm:get_snapshot_time() of
-  %%  {ok, VC} -> {ok, dict:to_list(VC)};
-  %%  {error, Reason} -> {error, Reason}
-  %%end.
+get_clock(K) -> swiftcloud_kdur:get_kdur_snapshot(K).
 
 %% Reads the object with the specified key and dependencies
 -spec read_object(Clock::snapshot_time(), Key::key(), Type::type()) -> {ok, {term(), snapshot_time()}} | {error, reason()}.
@@ -44,7 +39,7 @@ read_object(Clock, Key, Type) ->
 %% Executes the given transaction
 -spec execute_transaction(OTID::otid(), {Clock::snapshot_time(), Operations::[any()]}) -> {ok, commit_time()} | {error, reason()}.
 execute_transaction(OTID, Transaction) ->
-  case swiftcloud_otid_fsm:was_otid_observed(OTID) of
+  case swiftcloud_otid:was_otid_observed(OTID) of
     true ->
       DcId = dc_utilities:get_my_dc_id(),
       {ok, SnapshotTime} = clocksi_interactive_tx_coord_fsm:get_snapshot_time(),

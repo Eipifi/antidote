@@ -118,7 +118,7 @@ check_and_update(SnapshotTime, Localclock, Transaction,
                     lager:error("Wrong transaction record format"),
                     erlang:error(bad_transaction_record)
             end,
-    case swiftcloud_otid_fsm:was_otid_observed(get_transaction_otid(Transaction)) of
+    case swiftcloud_otid:was_otid_observed(get_transaction_otid(Transaction)) of
         true ->
             %% the transaction OTID was already observed, we can safely skip it
             lager:info("Duplicate transaction skipped"),
