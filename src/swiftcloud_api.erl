@@ -49,7 +49,7 @@ execute_transaction(OTID, Transaction) ->
 
 execute_after_otid_check(OTID, {Clock, Operations}) ->
   {ClientID, _} = OTID,
-  Fun = fun(OP) -> format_operation(OP, ClientID) end,
+  Fun = fun({Key, Type, Op}) -> {update, Key, Type, {Op, ClientID}} end,
   case execute_tx_with_otid(dict:from_list(Clock), lists:map(Fun, Operations), OTID) of
     {ok, {_, _, CommitTime}} ->
       DcId = dc_utilities:get_my_dc_id(),
@@ -59,13 +59,6 @@ execute_after_otid_check(OTID, {Clock, Operations}) ->
       %% we have a serious problem - the OTID was stored, but the transaction failed.
       {error, Reason}
   end.
-
-format_operation({Key, Type, Method, Args}, Actor) ->
-  OpParam = case Args of
-    [] -> Method;
-    _ -> list_to_tuple([ Method | Args])
-  end,
-  {update, Key, Type, {OpParam, Actor}}.
 
 execute_tx_with_otid(Clock, Operations, OTID) ->
   {ok, _} = clocksi_static_tx_coord_sup:start_fsm([self(), Clock, Operations, OTID]),
