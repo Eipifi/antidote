@@ -154,6 +154,7 @@ terminate(_Reason, _State) ->
 %% vnode when the write function calls it. That is done for garbage collection.
 -spec internal_read(pid() | ignore, key(), type(), snapshot_time(), txid() | ignore, ets:tid(), ets:tid()) -> {ok, snapshot()} | {error, no_snapshot}.
 internal_read(Sender, Key, Type, SnapshotTime, TxId, OpsCache, SnapshotCache) ->
+    lager:info("Inside internal_read, key=~p type=~p", [Key, Type]),
     {SnapDict, LatestSnapshot, SnapshotCommitTime} = case ets:lookup(SnapshotCache, Key) of
         [] ->
             {orddict:new(), clocksi_materializer:new(Type), ignore};
@@ -165,12 +166,14 @@ internal_read(Sender, Key, Type, SnapshotTime, TxId, OpsCache, SnapshotCache) ->
                     {SnapshotDict, LS, SCT}
             end
     end,
+    lager:info("snapdict=~p, latest=~p, cmttime=~p", [SnapDict, LatestSnapshot, SnapshotCommitTime]),
     case ets:lookup(OpsCache, Key) of
         [] ->
             riak_core_vnode:reply(Sender, {ok, LatestSnapshot}),
             {ok, LatestSnapshot};
         [{_, OpsDict}] ->
             {ok, Ops} = filter_ops(OpsDict),
+            lager:info("OPS=~p", [Ops]),
             case clocksi_materializer:materialize(Type, LatestSnapshot, SnapshotCommitTime, SnapshotTime, Ops, TxId) of
                 {ok, Snapshot, CommitTime} ->
                     %% the following checks for the case there were no snapshots and there were operations, but none was applicable

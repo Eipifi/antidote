@@ -38,16 +38,7 @@ read_object(Clock, Key, Type) ->
 
 %% Executes the given transaction
 -spec execute_transaction(OTID::otid(), {Clock::snapshot_time(), Operations::[any()]}) -> {ok, commit_time()} | {error, reason()}.
-execute_transaction(OTID, Transaction) ->
-  case swiftcloud_otid:was_otid_observed(OTID) of
-    true ->
-      DcId = dc_utilities:get_my_dc_id(),
-      {ok, SnapshotTime} = clocksi_interactive_tx_coord_fsm:get_snapshot_time(),
-      {ok, {DcId, vectorclock:get_clock_of_dc(DcId, SnapshotTime)}};
-    false -> execute_after_otid_check(OTID, Transaction)
-  end.
-
-execute_after_otid_check(OTID, {Clock, Operations}) ->
+execute_transaction(OTID, {Clock, Operations}) ->
   {ClientID, _} = OTID,
   Fun = fun({Key, Type, Op}) -> {update, Key, Type, {Op, ClientID}} end,
   case execute_tx_with_otid(dict:from_list(Clock), lists:map(Fun, Operations), OTID) of

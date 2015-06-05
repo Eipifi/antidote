@@ -23,15 +23,20 @@
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3, start_link/0, get_kdur_snapshot/1]).
 
+-define(INTERVAL, 1000).
+
 start_link() -> gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 init(_)->
-  timer:send_interval(1000, interval),
+  erlang:send_after(1000, self(), update),
   {ok, []}.
 
-handle_info(interval, State)->
+handle_info(update, State)->
   update_clock_map(),
-  {noreply, State}.
+  erlang:send_after(1000, self(), update),
+  {noreply, State};
+
+handle_info(_Message, State) -> {noreply, State}.
 
 handle_call(_Request, _From, ClockMap) -> {noreply, ClockMap}.
 
