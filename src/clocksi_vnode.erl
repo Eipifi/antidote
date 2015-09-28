@@ -47,7 +47,8 @@
     handle_handoff_data/2,
     encode_handoff_item/2,
     handle_coverage/4,
-    handle_exit/3]).
+    handle_exit/3,
+    get_active_txns_call/1]).
 
 -ignore_xref([start_vnode/1]).
 
