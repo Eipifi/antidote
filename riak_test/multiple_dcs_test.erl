@@ -1,6 +1,6 @@
 -module(multiple_dcs_test).
 
--export([confirm/0, multiple_writes/4]).
+-export([confirm/0, multiple_writes/5, simple_replication_test/3, parallel_writes_test/3, failure_test/3]).
 
 -include_lib("eunit/include/eunit.hrl").
 
@@ -53,9 +53,9 @@ confirm() ->
     ok = rpc:call(HeadCluster3, inter_dc_manager, observe_dcs_sync, [[DC1, DC2]]),
     lager:info("DCs connected!"),
 
-    simple_replication_test(Cluster1, Cluster2, Cluster3),
+    %%simple_replication_test(Cluster1, Cluster2, Cluster3),
     parallel_writes_test(Cluster1, Cluster2, Cluster3),
-    failure_test(Cluster1, Cluster2, Cluster3),
+    %%failure_test(Cluster1, Cluster2, Cluster3),
     pass.
 
 simple_replication_test(Cluster1, Cluster2, Cluster3) ->
@@ -139,9 +139,9 @@ parallel_writes_test(Cluster1, Cluster2, Cluster3) ->
     %% WriteFun = fun(A,B,C,D) ->
     %%                    multiple_writes(A,B,C,D)
     %%            end,
-    spawn(?MODULE, multiple_writes,[Node1,Key, node1, Pid]),
-    spawn(?MODULE, multiple_writes,[Node2,Key, node2, Pid]),
-    spawn(?MODULE, multiple_writes,[Node3,Key, node3, Pid]),
+    spawn(?MODULE, multiple_writes,[Node1, Key, node1, Pid, 0]),
+    spawn(?MODULE, multiple_writes,[Node2, Key, node2, Pid, 1]),
+    spawn(?MODULE, multiple_writes,[Node3, Key, node3, Pid, 2]),
     Result = receive
         {ok, CT1} ->
             receive
@@ -160,17 +160,17 @@ parallel_writes_test(Cluster1, Cluster2, Cluster3) ->
                            antidote, clocksi_read,
                            [Time, Key, riak_dt_gcounter]),
                         {ok, {_,[ReadSet1],_} }= ReadResult1,
-                        ?assertEqual(15, ReadSet1),
+                        ?assertEqual(p2(15) - 1, ReadSet1),
                         ReadResult2 = rpc:call(Node2,
                            antidote, clocksi_read,
                            [Time, Key, riak_dt_gcounter]),
                         {ok, {_,[ReadSet2],_} }= ReadResult2,
-                        ?assertEqual(15, ReadSet2),
+                        ?assertEqual(p2(15) - 1, ReadSet2),
                         ReadResult3 = rpc:call(Node3,
                            antidote, clocksi_read,
                            [Time, Key, riak_dt_gcounter]),
                         {ok, {_,[ReadSet3],_} }= ReadResult3,
-                        ?assertEqual(15, ReadSet3),
+                        ?assertEqual(p2(15) - 1, ReadSet3),
                         lager:info("Parallel reads passed"),
                         pass
                     end
@@ -179,26 +179,33 @@ parallel_writes_test(Cluster1, Cluster2, Cluster3) ->
     ?assertEqual(Result, pass),
     pass.
 
-multiple_writes(Node, Key, Actor, ReplyTo) ->
+p2(Y) -> pow(2, Y).
+pow(X, Y) -> pow(1, X, Y).
+pow(A, _, 0) -> A;
+pow(A, X, Y) -> pow(A * X, X, Y-1).
+
+multiple_writes(Node, Key, Actor, ReplyTo, Num) ->
+    P = fun(X) -> p2(5 * Num + X) end,
+
     WriteResult1 = rpc:call(Node,
                             antidote, append,
-                            [Key, riak_dt_gcounter, {increment, list_to_atom(atom_to_list(Actor) ++ atom_to_list(ucl6))}]),
+                            [Key, riak_dt_gcounter, {{increment, P(0)}, list_to_atom(atom_to_list(Actor) ++ atom_to_list(ucl6))}]),
     ?assertMatch({ok, _}, WriteResult1),
     WriteResult2 = rpc:call(Node,
                             antidote, append,
-                            [Key, riak_dt_gcounter, {increment, list_to_atom(atom_to_list(Actor) ++ atom_to_list(ucl7))}]),
+                            [Key, riak_dt_gcounter, {{increment, P(1)}, list_to_atom(atom_to_list(Actor) ++ atom_to_list(ucl7))}]),
     ?assertMatch({ok, _}, WriteResult2),
     WriteResult3 = rpc:call(Node,
                             antidote, append,
-                            [Key, riak_dt_gcounter, {increment, list_to_atom(atom_to_list(Actor) ++ atom_to_list(ucl8))}]),
+                            [Key, riak_dt_gcounter, {{increment, P(2)}, list_to_atom(atom_to_list(Actor) ++ atom_to_list(ucl8))}]),
     ?assertMatch({ok, _}, WriteResult3),
     WriteResult4 = rpc:call(Node,
                             antidote, append,
-                            [Key, riak_dt_gcounter, {increment, list_to_atom(atom_to_list(Actor) ++ atom_to_list(ucl9))}]),
+                            [Key, riak_dt_gcounter, {{increment, P(3)}, list_to_atom(atom_to_list(Actor) ++ atom_to_list(ucl9))}]),
     ?assertMatch({ok, _}, WriteResult4),
     WriteResult5 = rpc:call(Node,
                             antidote, append,
-                            [Key, riak_dt_gcounter, {increment, list_to_atom(atom_to_list(Actor) ++ atom_to_list(ucl10))}]),
+                            [Key, riak_dt_gcounter, {{increment, P(4)}, list_to_atom(atom_to_list(Actor) ++ atom_to_list(ucl10))}]),
     ?assertMatch({ok, _}, WriteResult5),
     {ok,{_,_,CommitTime}}=WriteResult5,
     ReplyTo ! {ok, CommitTime}.
